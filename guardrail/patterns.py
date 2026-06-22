@@ -121,7 +121,7 @@ CONCEPTS = {
         # Hindi / Indic
         "बताओ", "बता दो", "दिखाओ", "दिखा दो", "छाप", "batao", "bata do",
         "dikhao", "dikha do", "প্রকাশ", "দেখাও", "காட்டு", "சொல்லு",
-        "చూపించు", "చెప్పు", "दाखवा", "बताव", "બતાવો", "દર્શાવો",
+        "చూపించు", "చెప్పు", "दाखवा", "सांगा", "बताव", "બતાવો", "દર્શાવો",
         "ತೋರಿಸಿ", "ಹೇಳಿ", "കാണിക്കുക", "പറയുക", "ਦੱਸੋ", "ਦਿਖਾਓ",
         # Arabic / Persian / Hebrew
         "اظهر", "أظهر", "اعرض", "أخبرني", "بگو", "نشان بده", "הצג", "תגיד",
@@ -146,6 +146,7 @@ CONCEPTS = {
         "text above this line", "prompt above",
         "सिस्टम प्रॉम्प्ट", "सिस्टम प्रॉम्प्ट", "अपने निर्देश", "अपना प्रॉम्प्ट",
         "system prompt batao", "apne nirdesh", "apna prompt",
+        "तुमच्या सूचना", "तुमचा प्रॉम्प्ट", "तुमचे नियम", "सिस्टम प्रॉम्प्ट दाखवा",
         "prompt système", "system-prompt", "systemprompt", "tu sistema de",
         "تعليماتك", "نظام التعليمات", "系统提示", "系统提示词", "你的指令",
         "你的系统", "システムプロンプト", "あなたの指示", "시스템 프롬프트",
@@ -162,6 +163,8 @@ CONCEPTS = {
         "behave as", "behave like", "from now on you", "you will be",
         "you will act", "you are going to be", "simulate being", "you become",
         "अब तुम", "अब आप", "अब तुम एक", "act karo jaise", "ban jao", "बन जाओ",
+        # Marathi
+        "आता तू", "आता तुम्ही", "आता तुझी भूमिका", "अशी वागा", "ची भूमिका कर",
         "actúa como", "haz como si", "finge ser", "compórtate como",
         "agis comme", "fais comme si", "handle als", "verhalte dich wie",
         "tu sei ora", "você é agora", "你现在是", "你是一个", "扮演", "假装",
@@ -187,6 +190,9 @@ CONCEPTS = {
         "you must obey", "evil ai", "evil assistant", "no longer an ai",
         "कोई नियम नहीं", "कोई पाबंदी नहीं", "कोई रोक नहीं", "koi niyam nahi",
         "koi pratibandh nahi", "koi rok nahi", "bina rok",
+        # Marathi
+        "कोणतेही बंधन नाही", "बंधन नसलेला", "बंधन नसलेली", "कोणतेही नियम नाही",
+        "कोणतेही निर्बंध नाही", "निर्बंध नसलेला",
         "sin restricciones", "sin límites", "sin reglas", "sin filtro",
         "sans restrictions", "sans limites", "sans règles", "sans filtre",
         "ohne einschränkungen", "ohne grenzen", "ohne regeln", "ohne filter",
@@ -249,6 +255,7 @@ CONCEPTS["strong_jailbreak"] = [
     "no longer an ai", "no longer bound", "opposite mode",
     "कोई नियम नहीं", "कोई पाबंदी नहीं", "कोई रोक नहीं", "koi niyam nahi",
     "koi pratibandh nahi", "koi rok nahi",
+    "कोणतेही बंधन नाही", "कोणतेही नियम नाही", "बंधन नसलेला", "निर्बंध नसलेला",
     "sin restricciones", "sin reglas", "sin filtro", "sans restrictions",
     "sans règles", "sans filtre", "ohne einschränkungen", "ohne regeln",
     "ohne filter", "没有限制", "没有规则", "不受限制", "制限なし",
@@ -301,6 +308,7 @@ HARM_PHRASES = [
     "how to kill someone", "untraceable murder", "cook meth", "manufacture meth",
     "child sexual", "human trafficking guide",
     "बम कैसे बनाएं", "बम बनाने", "जहर कैसे बनाएं", "हैक कैसे करें",
+    "बॉम्ब कसा बनवायचा", "बॉम्ब बनव", "बॉम्ब कसा तयार", "स्फोटक कसे बनवायचे",
     "cómo hacer una bomba", "fabricar explosivos", "cómo fabricar una bomba",
     "comment fabriquer une bombe", "wie baue ich eine bombe",
     "如何制造炸弹", "制作炸弹", "怎么制造炸弹", "爆弾の作り方",
