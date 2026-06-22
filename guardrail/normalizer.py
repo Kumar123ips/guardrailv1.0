@@ -154,10 +154,13 @@ def collapse_separators(text):
     single separator is wedged between every letter. We only collapse when the
     pattern is consistent, to avoid mangling normal text.
     """
-    # letter sep letter sep letter ... -> remove the separators
+    # letter sep letter sep letter ... -> remove the separators.
+    # Require a run of >=5 single-letter tokens so we only collapse genuinely
+    # spaced-out words ("i g n o r e") and NOT normal prose that merely contains
+    # short words ("do i make a bomb", where 'i'/'a' would otherwise trigger it).
     def _join(m):
         return re.sub(r"[\s\.\-_*~`'\"/\\|+]", "", m.group(0))
-    pattern = re.compile(r"(?:[A-Za-z][\s\.\-_*~`'\"/\\|+]){2,}[A-Za-z]")
+    pattern = re.compile(r"(?:[A-Za-z][\s\.\-_*~`'\"/\\|+]){4,}[A-Za-z]")
     return pattern.sub(_join, text)
 
 

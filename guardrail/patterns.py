@@ -116,7 +116,8 @@ CONCEPTS = {
     "reveal_verb": [
         "reveal", "show", "print", "repeat", "output", "display", "leak",
         "expose", "tell me", "give me", "dump", "spit out", "write out",
-        "what is your", "what are your", "list your",
+        "what is your", "what are your", "list your", "what is the",
+        "what's the", "whats the", "what are the", "what was the",
         # Hindi / Indic
         "बताओ", "बता दो", "दिखाओ", "दिखा दो", "छाप", "batao", "bata do",
         "dikhao", "dikha do", "প্রকাশ", "দেখাও", "காட்டு", "சொல்லு",
