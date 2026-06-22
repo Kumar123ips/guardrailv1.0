@@ -1,0 +1,4 @@
+__pycache__/
+*.pyc
+reports/_session.pdf
+.DS_Store
