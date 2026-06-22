@@ -35,7 +35,8 @@ import re
 CONCEPTS = {
     # ---- verbs meaning ignore / forget / override / bypass ----
     "ignore_verb": [
-        "ignore", "disregard", "forget", "override", "bypass", "neglect",
+        "ignor", "disregard", "forget", "overrid", "override", "bypass",
+        "neglect", "ignore",
         "discard", "overrule", "pay no attention", "set aside", "do not follow",
         "don't follow", "stop following", "no longer follow", "skip the",
         # English paraphrase synonyms (combo-gated, so safe)
@@ -123,6 +124,8 @@ CONCEPTS = {
         # semantic reveal synonyms (combo-gated by system/secret nouns)
         "recite", "read back", "read out", "read me", "whisper", "divulge",
         "disclose", "spill", "lay bare", "recount", "let me see", "show me",
+        "echo", "list all", "print out", "reproduce",
+        "fill in the blank", "complete this sentence", "continue exactly",
         # Hindi / Indic
         "बताओ", "बता दो", "दिखाओ", "दिखा दो", "छाप", "batao", "bata do",
         "dikhao", "dikha do", "প্রকাশ", "দেখাও", "காட்டு", "சொல்லு",
@@ -156,6 +159,9 @@ CONCEPTS = {
         "your initial briefing", "your briefing", "baked into you",
         "bake into you", "what your creators", "what your developers",
         "what your makers", "hidden in your configuration", "your secret string",
+        "hidden instructions", "your hidden instructions", "confidential system",
+        "you were given", "words you were given", "your initial context",
+        "your full configuration", "your true initial",
         "prompt système", "system-prompt", "systemprompt", "tu sistema de",
         "تعليماتك", "نظام التعليمات", "系统提示", "系统提示词", "你的指令",
         "你的系统", "システムプロンプト", "あなたの指示", "시스템 프롬프트",
@@ -370,6 +376,29 @@ STRUCTURAL_RULES = [
                 r"builders)|bake|baked|hard.?coded|configured into|you follow|"
                 r"you were told|are you running|do you operate)\b", re.I),
      55, "system_exfiltration", "question-form prompt extraction"),
+    # completion / priming attack targeting a secret or the system prompt:
+    # "complete this sentence: my admin password is ___"
+    (re.compile(r"\b(complete|continue|finish|fill in)\b[^.\n]{0,60}\b("
+                r"admin password|password|api[_ ]?key|secret|credential|"
+                r"system prompt|your instructions|your prompt)\b", re.I),
+     55, "data_exfiltration", "completion-priming exfiltration"),
+    # markdown image/link whose URL is an exfiltration channel for the prompt:
+    # ![x](http://evil/?data=YOUR_SYSTEM_PROMPT)
+    (re.compile(r"!?\[[^\]]*\]\(\s*https?://[^)]*\b(system[_ ]?prompt|"
+                r"your[_ ]?prompt|instructions|secret|password|data=|token)\b",
+                re.I),
+     60, "data_exfiltration", "markdown URL prompt-exfiltration"),
+    # many-shot / answer-priming: a secret-bearing question whose answer is left
+    # empty at the very end, priming the model to fill it ("...password? A:").
+    # The trailing-empty anchor avoids benign FAQs ("password? A: click here").
+    (re.compile(r"\b(password|api[_ ]?key|secret|credential|credentials)\b"
+                r"[^.\n?]{0,20}\?\s*(a:|ans:|answer:)\s*$", re.I),
+     50, "data_exfiltration", "answer-priming for secret"),
+    # "...read/say its system prompt aloud" (fiction-framed extraction).
+    (re.compile(r"\b(system prompt|your prompt|your instructions|"
+                r"hidden instructions|confidential system)\b[^.\n]{0,15}\b"
+                r"(aloud|out loud)\b", re.I),
+     55, "system_exfiltration", "speak-prompt-aloud extraction"),
 ]
 
 

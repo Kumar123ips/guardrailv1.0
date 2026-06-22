@@ -298,6 +298,28 @@ def try_base85(text):
     return out
 
 
+_NATO = {
+    "alpha": "a", "alfa": "a", "bravo": "b", "charlie": "c", "delta": "d",
+    "echo": "e", "foxtrot": "f", "golf": "g", "hotel": "h", "india": "i",
+    "juliet": "j", "juliett": "j", "kilo": "k", "lima": "l", "mike": "m",
+    "november": "n", "oscar": "o", "papa": "p", "quebec": "q", "romeo": "r",
+    "sierra": "s", "tango": "t", "uniform": "u", "victor": "v", "whiskey": "w",
+    "xray": "x", "x-ray": "x", "yankee": "y", "zulu": "z",
+}
+
+
+def try_nato(text):
+    """Decode NATO phonetic spelling ('india golf november oscar romeo echo'
+    -> 'ignore'). Only fires when several phonetic words appear together, so it
+    won't trip on a passing mention of the alphabet."""
+    words = re.findall(r"[A-Za-z][A-Za-z-]+", text.lower())
+    hits = sum(1 for w in words if w in _NATO)
+    if hits < 4:
+        return []
+    out = "".join(_NATO[w] for w in words if w in _NATO)
+    return [out] if out else []
+
+
 def try_binary(text):
     """Binary char codes: 01101001 01100111 ..."""
     out = []
@@ -323,7 +345,8 @@ def _mostly_printable(s):
 # attacks are caught).
 DECODERS = [
     try_base64, try_base32, try_base85, try_hex, try_decimal, try_binary,
-    try_url, try_html_entities, try_unicode_escape, try_rot13, try_reversed,
+    try_url, try_html_entities, try_unicode_escape, try_nato,
+    try_rot13, try_reversed,
 ]
 
 # "Substantive" decoders only — these fire ONLY when a real encoded payload is
