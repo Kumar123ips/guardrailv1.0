@@ -102,6 +102,33 @@ def decode_tag_chars(text):
     return "".join(out)
 
 
+def fold_diacritics(text):
+    """
+    Remove combining marks to defeat 'i̇ġṅȯṙė' style attacks (base Latin letters
+    wearing combining diacritics). Produced as an EXTRA view only: it would
+    mangle scripts that legitimately use combining marks (Devanagari/Arabic/
+    Tamil vowel signs), but those scripts keep their own untouched native view
+    for matching, so nothing is lost — we only gain a Latin-skeleton view.
+    """
+    decomposed = unicodedata.normalize("NFD", text)
+    stripped = "".join(c for c in decomposed
+                       if unicodedata.category(c) != "Mn")
+    return unicodedata.normalize("NFC", stripped)
+
+
+_MARKUP_RE = re.compile(r"<!--.*?-->|<[/!?a-zA-Z][^<>]{0,60}>", re.S)
+
+
+def strip_markup(text):
+    """
+    Remove HTML/XML comments and short tags so 'ig<!-- x -->no<b>re</b>' is
+    rejoined into 'ignore'. Produced as an EXTRA view; the raw text is still
+    scanned separately by the technical-injection rules (which need to SEE
+    <script> etc.), so XSS detection is unaffected.
+    """
+    return _MARKUP_RE.sub("", text)
+
+
 def strip_invisible(text):
     """Remove zero-width and bidi/formatting characters."""
     for ch in INVISIBLE_CHARS:
@@ -145,8 +172,10 @@ def deleet(text):
 # --------------------------------------------------------------------------
 def try_base64(text):
     out = []
-    # candidate runs of base64-looking characters, length >= 16
-    for m in re.findall(r"[A-Za-z0-9+/=]{16,}", text):
+    # collapse MIME-style internal whitespace so base64 split across lines still
+    # decodes, then scan candidate runs of base64-looking chars (length >= 16).
+    compact = re.sub(r"(?<=[A-Za-z0-9+/=])\s+(?=[A-Za-z0-9+/=])", "", text)
+    for m in re.findall(r"[A-Za-z0-9+/=]{16,}", compact):
         s = m.strip("=")
         for pad in ("", "=", "==", "==="):
             try:
@@ -239,6 +268,33 @@ def try_reversed(text):
     return [rev]
 
 
+def try_base32(text):
+    out = []
+    for m in re.findall(r"[A-Za-z2-7]{16,}=*", text):
+        s = m.upper().rstrip("=")
+        pad = (-len(s)) % 8
+        try:
+            dec = base64.b32decode(s + "=" * pad, casefold=True).decode(
+                "utf-8", "strict")
+            if dec and _mostly_printable(dec):
+                out.append(dec)
+        except (binascii.Error, ValueError, UnicodeDecodeError):
+            continue
+    return out
+
+
+def try_base85(text):
+    out = []
+    for m in re.findall(r"[0-9A-Za-z!#$%&()*+\-;<=>?@^_`{|}~]{20,}", text):
+        try:
+            dec = base64.b85decode(m).decode("utf-8", "strict")
+            if dec and _mostly_printable(dec):
+                out.append(dec)
+        except (ValueError, UnicodeDecodeError):
+            continue
+    return out
+
+
 def try_binary(text):
     """Binary char codes: 01101001 01100111 ..."""
     out = []
@@ -263,16 +319,16 @@ def _mostly_printable(s):
 # Decoders used to build detection views (include rot13 & reverse so those
 # attacks are caught).
 DECODERS = [
-    try_base64, try_hex, try_decimal, try_binary, try_url,
-    try_html_entities, try_unicode_escape, try_rot13, try_reversed,
+    try_base64, try_base32, try_base85, try_hex, try_decimal, try_binary,
+    try_url, try_html_entities, try_unicode_escape, try_rot13, try_reversed,
 ]
 
 # "Substantive" decoders only — these fire ONLY when a real encoded payload is
 # present. rot13/reverse are excluded because they always transform any text and
 # would otherwise mark every benign input as 'encoded'.
 SUBSTANTIVE_DECODERS = [
-    try_base64, try_hex, try_decimal, try_binary, try_url,
-    try_html_entities, try_unicode_escape,
+    try_base64, try_base32, try_base85, try_hex, try_decimal, try_binary,
+    try_url, try_html_entities, try_unicode_escape,
 ]
 
 
@@ -390,6 +446,15 @@ def all_views(text):
                 views.add(re.sub(r"\s+", "", base))
 
     _add_forms(text)
+
+    # extra de-obfuscation views: diacritic-folded and markup-stripped
+    folded = fold_diacritics(text)
+    if folded != text:
+        _add_forms(folded)
+    demarked = strip_markup(text)
+    if demarked != text:
+        _add_forms(demarked)
+        _add_forms(fold_diacritics(demarked))
 
     # decode Unicode-tag-smuggled instructions before encodings
     tagged = decode_tag_chars(text)

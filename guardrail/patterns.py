@@ -38,6 +38,13 @@ CONCEPTS = {
         "ignore", "disregard", "forget", "override", "bypass", "neglect",
         "discard", "overrule", "pay no attention", "set aside", "do not follow",
         "don't follow", "stop following", "no longer follow", "skip the",
+        # English paraphrase synonyms (combo-gated, so safe)
+        "pay zero heed", "pay no heed", "wipe your memory", "erase your memory",
+        "clear your memory", "unlearn", "scrap the", "abandon the", "ditch the",
+        "throw out the", "cast aside", "do away with the", "dispense with the",
+        "nullify the", "void the", "drop the previous", "reject the previous",
+        "reject your previous", "ignore prior", "forget about the previous",
+        "disregard whatever", "ignore whatever you were",
         # Hindi
         "अनदेखा", "अनदेखी", "उपेक्षा", "भूल", "भुला", "नज़रअंदाज", "नजरअंदाज",
         "नज़र अंदाज", "नजर अंदाज", "ध्यान मत", "मत मानो", "तोड़",
@@ -270,6 +277,8 @@ COMBINATIONS = [
      "system_exfiltration", "reveal + system prompt"),
     (frozenset({"persona_trigger", "unrestricted_marker"}), 78,
      "jailbreak_roleplay", "persona switch + no-restrictions"),
+    (frozenset({"unrestricted_marker", "system_noun"}), 70,
+     "jailbreak_roleplay", "no-restrictions + system-prompt target"),
     (frozenset({"reveal_verb", "secret_noun"}), 55,
      "data_exfiltration", "reveal + secret/credential"),
     (frozenset({"send_verb", "secret_noun"}), 65,
@@ -334,10 +343,15 @@ TECH_INJECTION_RULES = [
     # ---- SQL injection ----
     (re.compile(r"'\s*or\s*'?\s*\d+\s*'?\s*=\s*'?\s*\d+", re.I),
      80, "sql_injection", "SQL tautology (' OR 1=1)"),
+    (re.compile(r"\bor\b\s*\(?\s*(['\"]?)([a-z0-9]+)\1\s*=\s*['\"]?\2\b",
+                re.I),
+     80, "sql_injection", "SQL tautology (OR x=x)"),
     (re.compile(r"\bor\s+\d+\s*=\s*\d+\s*(--|#|/\*)", re.I),
      80, "sql_injection", "SQL OR-true with comment"),
     (re.compile(r"\bunion\s+(all\s+)?select\b", re.I),
      82, "sql_injection", "UNION SELECT"),
+    (re.compile(r"/\*!\d*", re.I),
+     76, "sql_injection", "MySQL conditional comment"),
     (re.compile(r";\s*(drop|delete|truncate|alter|update|insert)\s+"
                 r"(table|database|from|into)\b", re.I),
      85, "sql_injection", "stacked DDL/DML statement"),
@@ -364,10 +378,20 @@ TECH_INJECTION_RULES = [
      82, "command_injection", "reverse-shell pattern"),
     (re.compile(r"\|\s*(bash|sh|python|perl|ruby)\b", re.I),
      76, "command_injection", "pipe-to-interpreter"),
+    (re.compile(r"\bpowershell\b.{0,30}\s-(enc(odedcommand)?|e|nop|w\s+hidden)\b",
+                re.I),
+     80, "command_injection", "encoded PowerShell command"),
+    (re.compile(r"\b(iex|invoke-expression|invoke-webrequest|downloadstring|"
+                r"frombase64string|net\.webclient)\b", re.I),
+     72, "command_injection", "PowerShell download-exec cmdlet"),
+    (re.compile(r"\|\s*(iex|powershell)\b", re.I),
+     78, "command_injection", "pipe-to-PowerShell"),
 
     # ---- Server-Side Template Injection ----
-    (re.compile(r"\{\{\s*\d+\s*[\*\+\-]\s*\d+\s*\}\}"),
-     78, "ssti", "template arithmetic {{7*7}}"),
+    (re.compile(r"[\{\$#]\{?\{\s*\d+\s*[\*\+\-/]\s*\d+\s*\}\}?"),
+     78, "ssti", "template arithmetic ({{7*7}}/${7*7}/#{7*7})"),
+    (re.compile(r"\$\{\s*jndi\s*:", re.I),
+     88, "ssti", "JNDI/Log4Shell lookup"),
     (re.compile(r"\{\{.*?(__class__|__mro__|__subclasses__|__globals__|config|"
                 r"self\.|request\.|os\.|subprocess|popen|cycler|joiner|lipsum).*?\}\}",
                 re.I),
@@ -389,6 +413,12 @@ TECH_INJECTION_RULES = [
      65, "ssrf", "internal-network URL"),
     (re.compile(r"/latest/meta-data|/computeMetadata/", re.I),
      78, "ssrf", "metadata path"),
+    (re.compile(r"https?://0x[0-9a-f]+", re.I),
+     72, "ssrf", "hex-encoded IP (SSRF evasion)"),
+    (re.compile(r"https?://0[0-7]{1,}(\.[0-7]+){0,3}(?=[:/?\s]|$)"),
+     68, "ssrf", "octal-encoded IP (SSRF evasion)"),
+    (re.compile(r"https?://\d{8,12}(?=[:/?\s]|$)"),
+     72, "ssrf", "decimal/integer IP (SSRF evasion)"),
 
     # ---- Path traversal ----
     (re.compile(r"(\.\./){2,}|(\.\.\\){2,}"),

@@ -4,7 +4,7 @@ A **dependency-free, multilingual, semantic prompt-injection & unsafe-input fire
 
 It inspects any text — in **any language, any encoding, any obfuscation** — and returns a clear verdict (`ALLOW` / `FLAG` / `BLOCK`), a 0–100 risk score, and the **exact signals** that fired, so every decision is explainable.
 
-> **Honest note on "100%":** no guardrail can *mathematically* guarantee it catches every possible attack — that's true of every product on the market, including the big labs'. What this engine does is fail **safe, transparent, and broad**: it de-obfuscates input before judging it, reasons about *intent* rather than fixed phrases, and tells you precisely why it decided what it did. On the bundled **138-case corpus** spanning **66 languages**, **15 attack categories**, and six difficulty tiers (easy → extreme), it currently scores **100% detection with zero false positives** — and that corpus includes deliberately nasty false-positive traps (the name "Dan", "Sudan", `{{ user.name }}` templates, "prevent SQL injection" questions, `../shared` paths). You can grow the corpus and watch the number hold.
+> **Honest note on "100%":** no guardrail can *mathematically* guarantee it catches every possible attack — that's true of every product on the market, including the big labs'. What this engine does is fail **safe, transparent, and broad**: it de-obfuscates input before judging it, reasons about *intent* rather than fixed phrases, and tells you precisely why it decided what it did. On the bundled **186-case corpus** spanning **84 language/encoding variants**, **15 attack categories**, and six difficulty tiers (easy → extreme) — continuously hardened through repeated **self red-teaming** (the engine is attacked, breaks are found, patched, and frozen as regression tests) — it currently scores **100% detection with zero false positives**. The corpus includes deliberately nasty false-positive traps (the name "Dan", "Sudan", `{{ user.name }}` templates, `List<String>` generics, "prevent SQL injection" questions, `../shared` paths, "execute the plan") so the score reflects real precision, not just recall. You can grow the corpus and watch the number hold.
 
 ### What it covers
 
@@ -12,7 +12,7 @@ It inspects any text — in **any language, any encoding, any obfuscation** — 
 
 **Technical injection (payload-level):** SQL injection, OS command injection, Server-Side Template Injection (SSTI), SSRF (incl. cloud-metadata), path traversal, code/script injection (XSS, `eval`, deserialization), NoSQL & LDAP injection.
 
-**Evasion handled:** base64/hex/binary/decimal/URL/HTML-entity/unicode-escape/ROT13/reversed (incl. **nested** layers), homoglyphs (Cyrillic/Greek/fullwidth), zero-width & **Unicode-Tag** smuggling, leetspeak, spacing/dotted/tab tricks, and attacks **buried inside long benign paragraphs**.
+**Evasion handled:** base64/base32/base85/hex/binary/decimal/URL/HTML-entity/unicode-escape/ROT13/reversed (incl. **nested** and MIME-newline-split layers), homoglyphs (Cyrillic/Greek/fullwidth/math-alphanumeric), zero-width, bidi-override & **Unicode-Tag** smuggling, **combining-mark diacritics**, **HTML-comment/tag splitting**, leetspeak, spacing/dotted/tab/em-space tricks, English **paraphrase** synonyms, decimal/hex/octal-IP SSRF, Log4Shell/JNDI, encoded PowerShell, and attacks **buried inside long benign paragraphs**.
 
 ---
 
@@ -153,7 +153,7 @@ guardrail/
   report.py        dependency-free PDF writer
 server.py          pure-stdlib localhost UI
 run_tests.py       runs the corpus, writes PDF + JSON reports
-tests/test_cases.py  138-case corpus: 66 languages × 15 categories × 6 tiers
+tests/test_cases.py  186-case corpus: 84 variants × 15 categories × 6 tiers
 examples/integrate.py  drop-in integration patterns
 reports/           generated PDF / JSON reports
 ```
