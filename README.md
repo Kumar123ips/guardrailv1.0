@@ -126,6 +126,20 @@ Use it on **user prompts, tool outputs, retrieved RAG documents, or email/webhoo
 
 ---
 
+## OpenWebUI integration
+
+A ready-made **Filter function** is included at `integrations/openwebui_guardrail.py`. OpenWebUI runs a filter's `inlet()` on every message from the input box *before* it reaches the model — exactly where injection must be stopped.
+
+1. Copy the `guardrail/` package somewhere importable (e.g. next to the filter file).
+2. OpenWebUI → **Admin Panel → Functions → +** → paste `openwebui_guardrail.py` → Save → enable it (globally or per-model).
+3. Malicious input is now blocked at the input box with an explanation; safe chat passes through untouched.
+
+**Valves (settings in the OpenWebUI UI):** `enabled`, `block_on_flag` (also block FLAG verdicts — stricter / fail-closed), `scan_all_user_turns`, `scan_window`, `refusal_message`.
+
+Verified end-to-end by `python3 tests/test_openwebui.py`, which pushes the whole corpus **and** OpenWebUI-specific delivery tricks (multimodal text parts, injection buried in an earlier turn, SQLi/encoded-jailbreak typed in chat) through the real `Filter.inlet()`: **144/144 attacks blocked at the input box, 42/42 benign messages allowed.**
+
+> **Honest limitation — multi-turn split:** like *every* input-box filter, scanning messages individually cannot see a payload deliberately split across separate chat turns (e.g. "ignore all previous" in one message, "instructions" in the next), because no single message is a complete attack. Set `scan_window > 0` to also scan the concatenation of the last N user turns and close this gap — at the cost of occasional false positives when unrelated turns happen to combine (e.g. "rules of chess" + "ignore the background noise"). Default is `0` (per-message, zero false positives). Choose the tradeoff your deployment needs.
+
 ## API reference
 
 | Call | Returns |
@@ -155,6 +169,8 @@ server.py          pure-stdlib localhost UI
 run_tests.py       runs the corpus, writes PDF + JSON reports
 tests/test_cases.py  186-case corpus: 84 variants × 15 categories × 6 tiers
 examples/integrate.py  drop-in integration patterns
+integrations/openwebui_guardrail.py  OpenWebUI Filter function
+tests/test_openwebui.py  end-to-end OpenWebUI pipeline test
 reports/           generated PDF / JSON reports
 ```
 

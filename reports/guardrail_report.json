@@ -357,8 +357,8 @@
       "difficulty": "medium",
       "language": "English",
       "expected": "FLAG",
-      "verdict": "FLAG",
-      "score": 55,
+      "verdict": "BLOCK",
+      "score": 85,
       "families": [
         "data_exfiltration"
       ],
@@ -1528,8 +1528,8 @@
       "difficulty": "medium",
       "language": "English",
       "expected": "FLAG",
-      "verdict": "FLAG",
-      "score": 60,
+      "verdict": "BLOCK",
+      "score": 93,
       "families": [
         "data_exfiltration"
       ],
