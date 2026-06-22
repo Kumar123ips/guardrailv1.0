@@ -37,15 +37,24 @@ FLAG_THRESHOLD = 35
 
 
 # ---- precompute normalized concept keyword index (built once) ------------
+# Short ASCII-alphabetic keywords (e.g. "dan") are matched on WORD BOUNDARIES,
+# not as raw substrings, so they don't spuriously match inside longer words
+# (e.g. "abundant") or inside rot13/reversed noise views. Longer keywords and
+# all non-Latin keywords use fast substring matching.
 def _build_concept_index():
     idx = {}
     for concept, words in patterns.CONCEPTS.items():
-        norm = set()
+        substrs = set()
+        boundary = []
         for w in words:
             nk = normalizer.normalize_keyword(w)
-            if nk:
-                norm.add(nk)
-        idx[concept] = norm
+            if not nk:
+                continue
+            if len(nk) <= 4 and nk.isascii() and nk.isalpha():
+                boundary.append((nk, re.compile(r"\b" + re.escape(nk) + r"\b")))
+            else:
+                substrs.add(nk)
+        idx[concept] = (substrs, boundary)
     return idx
 
 
@@ -117,11 +126,19 @@ class Result:
 def _concepts_in(view):
     """Return {concept: matched_keyword} present in this view."""
     present = {}
-    for concept, words in _CONCEPT_INDEX.items():
-        for w in words:
-            if w and w in view:
-                present[concept] = w
+    for concept, (substrs, boundary) in _CONCEPT_INDEX.items():
+        hit = None
+        for w in substrs:
+            if w in view:
+                hit = w
                 break
+        if hit is None:
+            for nk, rx in boundary:
+                if rx.search(view):
+                    hit = nk
+                    break
+        if hit is not None:
+            present[concept] = hit
     return present
 
 
@@ -208,18 +225,30 @@ def analyze(text):
             continue
         cset = set(concepts)
 
-        # standalone dangerous concepts
-        for concept, (weight, fam, label) in patterns.STANDALONE.items():
-            if concept in concepts:
-                signals.append(Signal(fam, label, weight, concepts[concept]))
-                families.add(fam)
-
         # combination rules
         for combo, weight, fam, label in patterns.COMBINATIONS:
             if combo <= cset:
                 evidence = " + ".join(sorted(concepts[c] for c in combo))
                 signals.append(Signal(fam, label, weight, evidence))
                 families.add(fam)
+
+    # ---- standalone dangerous concepts ----
+    # Counted per DISTINCT matched marker across all views, so a lone marker
+    # lands at FLAG while two-or-more markers (e.g. "developer mode" + "no
+    # rules") escalate to BLOCK.
+    for concept, (weight, fam, label) in patterns.STANDALONE.items():
+        substrs, boundary = _CONCEPT_INDEX[concept]
+        found = set()
+        for view in views:
+            for w in substrs:
+                if w in view:
+                    found.add(w)
+            for nk, rx in boundary:
+                if rx.search(view):
+                    found.add(nk)
+        for w in sorted(found):
+            signals.append(Signal(fam, label, weight, w))
+            families.add(fam)
 
     # ---- dangerous-capability phrases (standalone, high weight) ----
     for view in views:
@@ -235,6 +264,23 @@ def analyze(text):
     for view in views:
         for rx, weight, fam, label in patterns.STRUCTURAL_RULES:
             m = rx.search(view)
+            if m:
+                signals.append(Signal(fam, label, weight, m.group(0)[:60]))
+                families.add(fam)
+
+    # ---- technical injection rules (SQLi, cmd, SSTI, SSRF, traversal, code) ----
+    # Run on raw, lowercased raw, homoglyph-mapped canonical (so Cyrillic-
+    # disguised payloads like "' ОR 1=1" are caught), and every nested decoded
+    # payload (so base64(base64(...)) exploits are surfaced).
+    tech_views = {raw, raw.lower(),
+                  normalizer.canonical(raw), normalizer.canonical_native(raw)}
+    for d in normalizer.substantive_expand(raw):
+        tech_views.add(d)
+        tech_views.add(d.lower())
+        tech_views.add(normalizer.canonical(d))
+    for tv in tech_views:
+        for rx, weight, fam, label in patterns.TECH_INJECTION_RULES:
+            m = rx.search(tv)
             if m:
                 signals.append(Signal(fam, label, weight, m.group(0)[:60]))
                 families.add(fam)

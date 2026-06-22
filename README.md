@@ -4,7 +4,15 @@ A **dependency-free, multilingual, semantic prompt-injection & unsafe-input fire
 
 It inspects any text — in **any language, any encoding, any obfuscation** — and returns a clear verdict (`ALLOW` / `FLAG` / `BLOCK`), a 0–100 risk score, and the **exact signals** that fired, so every decision is explainable.
 
-> **Honest note on "100%":** no guardrail can *mathematically* guarantee it catches every possible attack — that's true of every product on the market, including the big labs'. What this engine does is fail **safe, transparent, and broad**: it de-obfuscates input before judging it, reasons about *intent* rather than fixed phrases, and tells you precisely why it decided what it did. On the bundled 70-case corpus spanning **45 languages** and six difficulty tiers (easy → extreme), it currently scores **100% detection with zero false positives.** You can grow that corpus and watch the number hold.
+> **Honest note on "100%":** no guardrail can *mathematically* guarantee it catches every possible attack — that's true of every product on the market, including the big labs'. What this engine does is fail **safe, transparent, and broad**: it de-obfuscates input before judging it, reasons about *intent* rather than fixed phrases, and tells you precisely why it decided what it did. On the bundled **138-case corpus** spanning **66 languages**, **15 attack categories**, and six difficulty tiers (easy → extreme), it currently scores **100% detection with zero false positives** — and that corpus includes deliberately nasty false-positive traps (the name "Dan", "Sudan", `{{ user.name }}` templates, "prevent SQL injection" questions, `../shared` paths). You can grow the corpus and watch the number hold.
+
+### What it covers
+
+**Prompt-injection / LLM attacks:** instruction override, jailbreak / persona override (DAN, developer mode, …), system-prompt extraction, data & credential exfiltration, source-code/internals extraction, encoded-instruction abuse, context-break / fake-role injection.
+
+**Technical injection (payload-level):** SQL injection, OS command injection, Server-Side Template Injection (SSTI), SSRF (incl. cloud-metadata), path traversal, code/script injection (XSS, `eval`, deserialization), NoSQL & LDAP injection.
+
+**Evasion handled:** base64/hex/binary/decimal/URL/HTML-entity/unicode-escape/ROT13/reversed (incl. **nested** layers), homoglyphs (Cyrillic/Greek/fullwidth), zero-width & **Unicode-Tag** smuggling, leetspeak, spacing/dotted/tab tricks, and attacks **buried inside long benign paragraphs**.
 
 ---
 
@@ -25,7 +33,7 @@ Most filters keep a blocklist of bad sentences. Attackers beat them by translati
 
    Because it matches **roots in any language**, the same wires trip whether the attack is in English, Hindi, Tamil, Russian, Chinese, Arabic or Swahili — and inflection/word-order don't matter. A *lone* concept never fires, which keeps false positives near zero.
 
-3. **Layer 3 — Structural & anomaly heuristics.** Fake chat-role tags (`</system>`, `<|im_start|>`), injected `assistant:` lines, invisible-character density, intra-word script mixing, and embedded encoded payloads each add weight.
+3. **Layer 3 — Structural, technical-injection & anomaly heuristics.** High-confidence exploit *signatures* for SQLi / command injection / SSTI / SSRF / path traversal / code-injection / NoSQL / LDAP (run against raw **and** decoded **and** homoglyph-mapped views), fake chat-role tags (`</system>`, `<|im_start|>`), injected `assistant:` lines, invisible-character density, intra-word script mixing, and embedded encoded payloads each add weight. Signatures are written to match real payloads (`' OR '1'='1' --`) but **not** benign mentions ("how do I prevent SQL injection?").
 
 All signals combine with diminishing returns into a bounded score, mapped to a verdict.
 
@@ -145,7 +153,7 @@ guardrail/
   report.py        dependency-free PDF writer
 server.py          pure-stdlib localhost UI
 run_tests.py       runs the corpus, writes PDF + JSON reports
-tests/test_cases.py  70-case corpus: 45 languages × 6 difficulty tiers
+tests/test_cases.py  138-case corpus: 66 languages × 15 categories × 6 tiers
 examples/integrate.py  drop-in integration patterns
 reports/           generated PDF / JSON reports
 ```

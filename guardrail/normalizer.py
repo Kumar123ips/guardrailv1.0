@@ -82,6 +82,26 @@ LEET = {
 }
 
 
+def decode_tag_chars(text):
+    """
+    Decode 'Unicode Tag' smuggling (U+E0000–U+E007F). Attackers hide an entire
+    instruction in these invisible tag characters, each = (visible ASCII +
+    0xE0000). We map them back inline so the hidden message is exposed BEFORE
+    the strip step would otherwise silently delete it. Returns the de-tagged
+    string, or None if no tag characters are present.
+    """
+    if not any(0xE0000 <= ord(c) <= 0xE007F for c in text):
+        return None
+    out = []
+    for c in text:
+        o = ord(c)
+        if 0xE0000 <= o <= 0xE007F:
+            out.append(chr(o - 0xE0000))
+        else:
+            out.append(c)
+    return "".join(out)
+
+
 def strip_invisible(text):
     """Remove zero-width and bidi/formatting characters."""
     for ch in INVISIBLE_CHARS:
@@ -269,6 +289,26 @@ def substantive_decodings(text):
     return found
 
 
+def substantive_expand(text, depth=3):
+    """Recursively decode real encodings (no rot13/reverse), so nested payloads
+    like base64(base64(...)) are fully surfaced for the technical-injection
+    scanner. Bounded depth keeps it fast."""
+    found = set()
+    frontier = [text]
+    seen = {text}
+    while frontier and depth > 0:
+        depth -= 1
+        nxt = []
+        for item in frontier:
+            for dec in substantive_decodings(item):
+                if dec not in seen:
+                    seen.add(dec)
+                    found.add(dec)
+                    nxt.append(dec)
+        frontier = nxt
+    return found
+
+
 def expand_encodings(text, depth=3):
     """
     Recursively decode embedded encodings. Returns a set of decoded strings
@@ -350,7 +390,16 @@ def all_views(text):
                 views.add(re.sub(r"\s+", "", base))
 
     _add_forms(text)
+
+    # decode Unicode-tag-smuggled instructions before encodings
+    tagged = decode_tag_chars(text)
+    if tagged:
+        _add_forms(tagged)
+
     for dec in expand_encodings(text):
         _add_forms(dec)
+    if tagged:
+        for dec in expand_encodings(tagged):
+            _add_forms(dec)
 
     return {v for v in views if v}

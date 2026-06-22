@@ -122,7 +122,8 @@ CONCEPTS = {
         "montre", "révèle", "dis-moi", "zeig", "zeige", "verrate", "sag mir",
         "toon", "laat zien", "pokaż", "powiedz",
         # Russian / CJK
-        "покажи", "выведи", "скажи", "显示", "告诉", "输出", "重复", "列出",
+        "покажи", "выведи", "скажи", "повтори", "повторите", "продублируй",
+        "перечисли", "显示", "告诉", "输出", "重复", "列出",
         "表示", "教えて", "出力", "보여", "알려", "출력",
         "göster", "söyle", "hiển thị", "cho tôi xem", "tunjukkan", "tampilkan",
         "แสดง", "บอก", "onyesha", "niambie",
@@ -143,6 +144,9 @@ CONCEPTS = {
         "системный промпт", "ваши инструкции", "твои инструкции",
     ],
 
+    # ---- source-code / internals targets (populated below) ----
+    "code_target": [],
+
     # ---- persona-override triggers (need an unrestricted_marker to fire) ----
     "persona_trigger": [
         "you are now", "you're now", "you are a", "act as", "act like",
@@ -160,8 +164,10 @@ CONCEPTS = {
 
     # ---- markers of removed restrictions; dangerous on their own ----
     "unrestricted_marker": [
-        "dan", "do anything now", "developer mode", "dev mode", "jailbreak",
-        "jail break", "no restrictions", "without restrictions", "no limitations",
+        "do anything now", "you are dan", "you are now dan", "act as dan",
+        "be dan", "as dan", "dan mode", "named dan", "developer mode",
+        "dev mode", "jailbreak", "jail break", "unrestricted", "unrestrected",
+        "no restrictions", "without restrictions", "no limitations",
         "without limitations", "no limits", "no rules", "rules do not apply",
         "rules don't apply", "no filter", "no filters", "unfiltered",
         "uncensored", "no ethical", "no moral", "amoral", "without ethics",
@@ -200,11 +206,10 @@ CONCEPTS = {
 
     # ---- exfiltration verbs (move data OUT) ----
     "send_verb": [
-        "send to", "send it to", "post to", "post the", "upload", "exfiltrate",
-        "email the", "email it to", "transmit", "forward the", "leak the",
-        "dump the", "make a request to", "fetch http", "curl http",
-        "send a request", "send the contents", "report back to",
-        "भेजो", "अपलोड", "envía a", "envoyer à", "schicke an", "发送到",
+        "send", "post", "upload", "exfiltrate", "transmit", "forward", "leak",
+        "email", "share", "ship", "beam", "deliver", "dump", "report back",
+        "make a request to", "fetch http", "curl http", "send a request",
+        "भेजो", "अपलोड", "envía", "envoyer", "schicke", "发送",
         "上传", "送信", "전송", "отправь", "загрузи",
     ],
 
@@ -218,10 +223,39 @@ CONCEPTS = {
 }
 
 
-# Concepts that are dangerous on their own and fire standalone.
+# Unambiguous markers that fire STANDALONE (BLOCK-level). This is a subset of
+# unrestricted_marker — broad/ambiguous words like "unrestricted" or "no limits"
+# are deliberately excluded here (they only fire when combined with a
+# persona_trigger via COMBINATIONS), to avoid false positives on benign text
+# like "an unrestricted free-tier plan".
+CONCEPTS["strong_jailbreak"] = [
+    "do anything now", "you are dan", "you are now dan", "act as dan",
+    "dan mode", "developer mode", "dev mode", "jailbreak", "jail break",
+    "no restrictions", "without restrictions", "no limitations", "no rules",
+    "rules do not apply", "rules don't apply", "no filter", "no filters",
+    "unfiltered", "uncensored", "no ethical", "no moral", "amoral", "god mode",
+    "sudo mode", "root mode", "no guidelines", "ignore your guidelines",
+    "ignore your programming", "bypass your safety", "bypass all your safety",
+    "disable your safety", "no safety", "do not refuse", "never refuse",
+    "cannot refuse", "you must comply", "you must obey", "evil assistant",
+    "no longer an ai", "no longer bound", "opposite mode",
+    "कोई नियम नहीं", "कोई पाबंदी नहीं", "कोई रोक नहीं", "koi niyam nahi",
+    "koi pratibandh nahi", "koi rok nahi",
+    "sin restricciones", "sin reglas", "sin filtro", "sans restrictions",
+    "sans règles", "sans filtre", "ohne einschränkungen", "ohne regeln",
+    "ohne filter", "没有限制", "没有规则", "不受限制", "制限なし",
+    "제한 없이", "필터 없이", "без ограничений", "без правил", "без фильтра",
+    "sem restrições", "kısıtlama yok",
+]
+
+# Concepts that are dangerous on their own and fire standalone. Weight 52 means
+# a LONE marker lands at FLAG (>=35) — surfaced for review but not auto-blocked,
+# since phrases like "no restrictions" can appear in benign marketing — while
+# the same marker COMBINED with any other signal (persona switch, override,
+# context break, a second marker) escalates past BLOCK (>=70).
 STANDALONE = {
-    "unrestricted_marker": (70, "jailbreak_roleplay",
-                            "removed-restrictions marker"),
+    "strong_jailbreak": (52, "jailbreak_roleplay",
+                         "removed-restrictions marker"),
 }
 
 
@@ -283,3 +317,131 @@ STRUCTURAL_RULES = [
                 r"\b(execute|run|obey|follow|do it|then do|and do|act on)\b", re.I),
      35, "encoding_abuse", "decode-and-obey instruction"),
 ]
+
+
+# ==========================================================================
+# TECHNICAL INJECTION RULES — SQLi, command injection, SSTI, SSRF, path
+# traversal, code/script injection, NoSQL/LDAP. These are high-confidence
+# exploit *signatures* (not generic mentions), so they fire standalone at a
+# BLOCK-level weight. They run against raw + decoded views so URL/encoded
+# payloads (e.g. ..%2f..%2f) are caught after decoding.
+#
+# Designed to avoid benign false positives: e.g. "how do I prevent SQL
+# injection with parameterized queries?" contains no literal payload and is
+# NOT matched; "' OR '1'='1' --" is.
+# ==========================================================================
+TECH_INJECTION_RULES = [
+    # ---- SQL injection ----
+    (re.compile(r"'\s*or\s*'?\s*\d+\s*'?\s*=\s*'?\s*\d+", re.I),
+     80, "sql_injection", "SQL tautology (' OR 1=1)"),
+    (re.compile(r"\bor\s+\d+\s*=\s*\d+\s*(--|#|/\*)", re.I),
+     80, "sql_injection", "SQL OR-true with comment"),
+    (re.compile(r"\bunion\s+(all\s+)?select\b", re.I),
+     82, "sql_injection", "UNION SELECT"),
+    (re.compile(r";\s*(drop|delete|truncate|alter|update|insert)\s+"
+                r"(table|database|from|into)\b", re.I),
+     85, "sql_injection", "stacked DDL/DML statement"),
+    (re.compile(r"'\s*\)?\s*;\s*(drop|delete|update|insert|--)", re.I),
+     82, "sql_injection", "quote-break stacked query"),
+    (re.compile(r"\b(xp_cmdshell|sp_executesql)\b", re.I),
+     85, "sql_injection", "SQL Server RCE proc"),
+    (re.compile(r"\bwaitfor\s+delay\b|\b(sleep|pg_sleep|benchmark)\s*\(", re.I),
+     72, "sql_injection", "time-based blind SQLi"),
+    (re.compile(r"(--|#)\s*$|/\*.*\*/", re.I),
+     35, "sql_injection", "SQL comment terminator"),
+
+    # ---- OS command injection ----
+    (re.compile(r"[;&|`]\s*(rm|cat|ls|wget|curl|nc|ncat|bash|sh|zsh|powershell|"
+                r"chmod|chown|kill|reboot|shutdown|mkfifo|whoami|id|uname)\b", re.I),
+     82, "command_injection", "shell metacharacter + command"),
+    (re.compile(r"\$\(\s*[^)]+\)|`[^`]+`"),
+     78, "command_injection", "command substitution"),
+    (re.compile(r"\brm\s+-rf\s+[/~]", re.I),
+     85, "command_injection", "destructive rm -rf"),
+    (re.compile(r"/etc/(passwd|shadow|hosts|sudoers)\b", re.I),
+     70, "command_injection", "sensitive system file"),
+    (re.compile(r"\b(nc|ncat|bash|sh)\s+-[a-z]*e|/dev/tcp/", re.I),
+     82, "command_injection", "reverse-shell pattern"),
+    (re.compile(r"\|\s*(bash|sh|python|perl|ruby)\b", re.I),
+     76, "command_injection", "pipe-to-interpreter"),
+
+    # ---- Server-Side Template Injection ----
+    (re.compile(r"\{\{\s*\d+\s*[\*\+\-]\s*\d+\s*\}\}"),
+     78, "ssti", "template arithmetic {{7*7}}"),
+    (re.compile(r"\{\{.*?(__class__|__mro__|__subclasses__|__globals__|config|"
+                r"self\.|request\.|os\.|subprocess|popen|cycler|joiner|lipsum).*?\}\}",
+                re.I),
+     85, "ssti", "Jinja/template object access"),
+    (re.compile(r"\$\{\s*.*?(class|runtime|exec|getclass|t\(|new\s).*?\}", re.I),
+     80, "ssti", "EL/Spring template injection"),
+    (re.compile(r"<%[=\s].*?%>"), 70, "ssti", "ERB/JSP scriptlet"),
+    (re.compile(r"#\{\s*.*?(exec|system|`|open).*?\}", re.I),
+     78, "ssti", "Ruby/Java template injection"),
+
+    # ---- SSRF ----
+    (re.compile(r"\b(169\.254\.169\.254|metadata\.google\.internal|"
+                r"100\.100\.100\.200)\b"),
+     85, "ssrf", "cloud metadata endpoint"),
+    (re.compile(r"\b(file|gopher|dict|ftp|ldap|tftp)://", re.I),
+     72, "ssrf", "dangerous URL scheme"),
+    (re.compile(r"https?://(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]|"
+                r"169\.254\.\d+\.\d+|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+)", re.I),
+     65, "ssrf", "internal-network URL"),
+    (re.compile(r"/latest/meta-data|/computeMetadata/", re.I),
+     78, "ssrf", "metadata path"),
+
+    # ---- Path traversal ----
+    (re.compile(r"(\.\./){2,}|(\.\.\\){2,}"),
+     78, "path_traversal", "directory traversal sequence"),
+    (re.compile(r"\.\.(/|\\).*(passwd|shadow|\.env|web\.config|boot\.ini|"
+                r"id_rsa|\.ssh)", re.I),
+     82, "path_traversal", "traversal to sensitive file"),
+    (re.compile(r"(c:\\windows\\system32|/proc/self/environ|/root/\.ssh)", re.I),
+     78, "path_traversal", "sensitive absolute path"),
+
+    # ---- Code / script injection (XSS, eval, deserialization) ----
+    (re.compile(r"<\s*script[\s>]|</\s*script\s*>", re.I),
+     72, "code_injection", "script tag (XSS)"),
+    (re.compile(r"\bon(error|load|click|mouseover)\s*=\s*['\"]?", re.I),
+     60, "code_injection", "inline event handler (XSS)"),
+    (re.compile(r"\bjavascript:\s*\w", re.I),
+     65, "code_injection", "javascript: URI"),
+    (re.compile(r"\b(eval|exec|system|popen|assert)\s*\(|__import__\s*\(", re.I),
+     70, "code_injection", "dynamic code execution"),
+    (re.compile(r"\b(os\.system|subprocess\.(popen|call|run)|pickle\.loads|"
+                r"yaml\.load|marshal\.loads)\b", re.I),
+     74, "code_injection", "dangerous API call"),
+    (re.compile(r"document\.(cookie|location)|window\.location", re.I),
+     55, "code_injection", "DOM data theft"),
+
+    # ---- NoSQL / LDAP injection ----
+    (re.compile(r"\{\s*['\"]?\$(ne|gt|lt|gte|lte|where|regex|in)['\"]?\s*:", re.I),
+     72, "nosql_injection", "MongoDB operator injection"),
+    (re.compile(r"\)\s*\(\s*\|\s*\(|\*\)\s*\(\s*(uid|cn|objectclass)=", re.I),
+     70, "ldap_injection", "LDAP filter injection"),
+]
+
+
+# ==========================================================================
+# SOURCE-CODE / INTERNALS EXTRACTION — attempts to make the system reveal its
+# own files, code, or implementation details. reveal_verb + one of these nouns
+# is treated as exfiltration intent.
+# ==========================================================================
+CODE_TARGET_NOUNS = [
+    "source code", "your code", "your source", "the code of", "implementation",
+    "internal code", "your files", "file contents", "contents of the file",
+    "engine.py", "patterns.py", "config file", "configuration file",
+    ".py file", "the python file", "your prompt template", "function definition",
+    "how you were built", "how you are implemented", "your backend",
+    "अपना कोड", "अपना सोर्स कोड", "tu código fuente", "ton code source",
+    "你的源代码", "源代码", "ソースコード", "소스 코드", "исходный код",
+]
+
+# Wire the source-code targets into the concept system.
+CONCEPTS["code_target"] = CODE_TARGET_NOUNS
+
+# reveal_verb + code_target => attempt to extract internal code/files.
+COMBINATIONS.append(
+    (frozenset({"reveal_verb", "code_target"}), 60,
+     "data_exfiltration", "reveal + source code/internals")
+)
