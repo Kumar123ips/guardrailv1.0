@@ -45,6 +45,8 @@ CONCEPTS = {
         "nullify the", "void the", "drop the previous", "reject the previous",
         "reject your previous", "ignore prior", "forget about the previous",
         "disregard whatever", "ignore whatever you were",
+        "drop the act", "drop your persona", "break character", "stop being",
+        "stop acting as", "stop pretending to be", "snap out of", "quit being",
         # Hindi
         "अनदेखा", "अनदेखी", "उपेक्षा", "भूल", "भुला", "नज़रअंदाज", "नजरअंदाज",
         "नज़र अंदाज", "नजर अंदाज", "ध्यान मत", "मत मानो", "तोड़",
@@ -118,6 +120,9 @@ CONCEPTS = {
         "expose", "tell me", "give me", "dump", "spit out", "write out",
         "what is your", "what are your", "list your", "what is the",
         "what's the", "whats the", "what are the", "what was the",
+        # semantic reveal synonyms (combo-gated by system/secret nouns)
+        "recite", "read back", "read out", "read me", "whisper", "divulge",
+        "disclose", "spill", "lay bare", "recount", "let me see", "show me",
         # Hindi / Indic
         "बताओ", "बता दो", "दिखाओ", "दिखा दो", "छाप", "batao", "bata do",
         "dikhao", "dikha do", "প্রকাশ", "দেখাও", "காட்டு", "சொல்லு",
@@ -147,6 +152,10 @@ CONCEPTS = {
         "सिस्टम प्रॉम्प्ट", "सिस्टम प्रॉम्प्ट", "अपने निर्देश", "अपना प्रॉम्प्ट",
         "system prompt batao", "apne nirdesh", "apna prompt",
         "तुमच्या सूचना", "तुमचा प्रॉम्प्ट", "तुमचे नियम", "सिस्टम प्रॉम्प्ट दाखवा",
+        "operating directives", "operating instructions", "what you were told",
+        "your initial briefing", "your briefing", "baked into you",
+        "bake into you", "what your creators", "what your developers",
+        "what your makers", "hidden in your configuration", "your secret string",
         "prompt système", "system-prompt", "systemprompt", "tu sistema de",
         "تعليماتك", "نظام التعليمات", "系统提示", "系统提示词", "你的指令",
         "你的系统", "システムプロンプト", "あなたの指示", "시스템 프롬프트",
@@ -162,6 +171,8 @@ CONCEPTS = {
         "pretend", "roleplay", "role play", "role-play", "imagine you are",
         "behave as", "behave like", "from now on you", "you will be",
         "you will act", "you are going to be", "simulate being", "you become",
+        "imagine", "behave as though", "act like a version", "a version of you",
+        "a version of yourself", "pretend the", "respond as though",
         "अब तुम", "अब आप", "अब तुम एक", "act karo jaise", "ban jao", "बन जाओ",
         # Marathi
         "आता तू", "आता तुम्ही", "आता तुझी भूमिका", "अशी वागा", "ची भूमिका कर",
@@ -187,6 +198,17 @@ CONCEPTS = {
         "bypass all your safety", "disable your safety", "no safety",
         "free from your", "not bound by", "break free from", "opposite mode",
         "do not refuse", "never refuse", "cannot refuse", "you must comply",
+        # semantic 'no constraints / safety removed' phrasings
+        "without your usual constraints", "without your constraints",
+        "without any constraints", "no usual constraints", "no content policy",
+        "content policy applies", "content policy no longer",
+        "guardrails were never", "guardrails removed", "guardrails off",
+        "guardrails are off", "guardrails disabled", "no guardrails",
+        "safety training was wiped", "safety training removed",
+        "safety training was removed", "safety training wiped",
+        "freed from every guideline", "freed from all guidelines",
+        "freed from your guidelines", "free from every guideline",
+        "freed from every rule", "break one of your rules", "break your rules",
         "you must obey", "evil ai", "evil assistant", "no longer an ai",
         "कोई नियम नहीं", "कोई पाबंदी नहीं", "कोई रोक नहीं", "koi niyam nahi",
         "koi pratibandh nahi", "koi rok nahi", "bina rok",
@@ -253,6 +275,11 @@ CONCEPTS["strong_jailbreak"] = [
     "disable your safety", "no safety", "do not refuse", "never refuse",
     "cannot refuse", "you must comply", "you must obey", "evil assistant",
     "no longer an ai", "no longer bound", "opposite mode",
+    "without your usual constraints", "no content policy", "no guardrails",
+    "guardrails were never", "guardrails removed", "guardrails are off",
+    "safety training was wiped", "safety training removed",
+    "freed from every guideline", "freed from all guidelines",
+    "break one of your rules", "break your rules",
     "कोई नियम नहीं", "कोई पाबंदी नहीं", "कोई रोक नहीं", "koi niyam nahi",
     "koi pratibandh nahi", "koi rok nahi",
     "कोणतेही बंधन नाही", "कोणतेही नियम नाही", "बंधन नसलेला", "निर्बंध नसलेला",
@@ -334,6 +361,15 @@ STRUCTURAL_RULES = [
     (re.compile(r"\b(decode|decrypt|unbase64|rot13|reverse|base64)\b[^.\n]{0,40}"
                 r"\b(execute|run|obey|follow|do it|then do|and do|act on)\b", re.I),
      35, "encoding_abuse", "decode-and-obey instruction"),
+    # question-form system-prompt extraction:
+    # "what instructions did your creators bake into you", etc.
+    (re.compile(r"\bwhat\b[^.\n]{0,40}\b(instruction|instructions|rule|rules|"
+                r"directive|directives|guideline|guidelines|prompt|"
+                r"configuration)\b[^.\n]{0,40}\b(were you given|did your "
+                r"(creator|creators|developer|developers|maker|makers|builder|"
+                r"builders)|bake|baked|hard.?coded|configured into|you follow|"
+                r"you were told|are you running|do you operate)\b", re.I),
+     55, "system_exfiltration", "question-form prompt extraction"),
 ]
 
 
