@@ -171,6 +171,27 @@ CONCEPTS = {
     # ---- source-code / internals targets (populated below) ----
     "code_target": [],
 
+    # ---- agentic tool/function execution verbs (combo-gated) ----
+    "tool_exec_verb": [
+        "call", "invoke", "execute", "run the", "run your", "use the",
+        "use your", "trigger", "fire the", "activate the", "you have access to",
+        "i grant you", "you may use", "call the tool", "call the function",
+        "use the tool", "use the function", "with the tool",
+    ],
+
+    # ---- dangerous tool / action targets (specific to avoid benign FPs) ----
+    "dangerous_tool": [
+        "delete_", "delete all", "deleteall", "delete the database",
+        "drop table", "drop database", "truncate table", "wipe all",
+        "destroy all", "grant_admin", "grant admin", "make me admin",
+        "give me admin", "admin privileges to me", "escalate privilege",
+        "disable_safety", "disable safety", "disable_filter", "disable the filter",
+        "disable the guardrail", "turn off safety", "turn off the filter",
+        "transfer_funds", "transfer funds to", "exfiltrate", "send_email",
+        "run_command", "run_shell", "exec_shell", "spawn shell", "shell tool",
+        "disable_safety_filter", "bypass auth", "factory reset", "wipe the db",
+    ],
+
     # ---- persona-override triggers (need an unrestricted_marker to fire) ----
     "persona_trigger": [
         "you are now", "you're now", "you are a", "act as", "act like",
@@ -399,6 +420,23 @@ STRUCTURAL_RULES = [
                 r"hidden instructions|confidential system)\b[^.\n]{0,15}\b"
                 r"(aloud|out loud)\b", re.I),
      55, "system_exfiltration", "speak-prompt-aloud extraction"),
+    # injected tool-call / function-call STRUCTURE (a user message should not
+    # carry a tool_call object; this is agentic injection).
+    (re.compile(r"[\"']?(tool_call|tool_calls|function_call)[\"']?\s*:", re.I),
+     60, "tool_execution", "injected tool_call structure"),
+    (re.compile(r"<\s*/?\s*(tool_call|function_call|tool_code)\s*>", re.I),
+     58, "tool_execution", "tool-call tag injection"),
+    (re.compile(r"[\"']name[\"']\s*:\s*[\"'][\w.\-]+[\"']\s*,\s*"
+                r"[\"']arguments[\"']\s*:", re.I),
+     55, "tool_execution", "function-call argument structure"),
+    (re.compile(r"[\"']role[\"']\s*:\s*[\"']tool[\"']", re.I),
+     50, "tool_execution", "injected tool-role message"),
+    # agentic indirect injection: fetch a URL/resource and run whatever it says.
+    (re.compile(r"\b(go to|navigate to|visit|open|fetch|browse to|download from)\b"
+                r"[^\n]{0,50}\b(run|execute|do|follow|obey)\b[^\n]{0,30}\b"
+                r"(code|whatever|instructions?|commands?|it returns|it says|"
+                r"you find|from there)\b", re.I),
+     62, "tool_execution", "agentic fetch-and-execute injection"),
 ]
 
 
@@ -548,4 +586,9 @@ CONCEPTS["code_target"] = CODE_TARGET_NOUNS
 COMBINATIONS.append(
     (frozenset({"reveal_verb", "code_target"}), 60,
      "data_exfiltration", "reveal + source code/internals")
+)
+# tool_exec_verb + dangerous_tool => unauthorized/dangerous tool invocation.
+COMBINATIONS.append(
+    (frozenset({"tool_exec_verb", "dangerous_tool"}), 75,
+     "tool_execution", "invoke dangerous tool/function")
 )
